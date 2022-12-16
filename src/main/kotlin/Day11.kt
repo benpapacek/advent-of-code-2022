@@ -4,44 +4,55 @@ object Day11 {
 
     class Monkey(
         val id: Int,
-        val items: MutableList<Int>,
-        val operation: (Int) -> Int,
-        val test: (Int) -> Int,
-        var count: Int = 0
+        val items: MutableList<Item>,
+        val operation: Operation,
+        val modulus: Int,
+        val nextIfTrue: Int,
+        val nextIfFalse: Int,
+        var count: Long = 0
     )
 
+    class Operation(val operator: String, val operand: String)
+
+    class Item(
+        var value: Int,
+        val moduloMap: MutableMap<Int, Int> = mutableMapOf()
+    )
+
+    fun part2() {
+        val monkeys = getMonkeyMap()
+        (1..10_000).forEach { _ ->
+            monkeys.values.sortedBy { it.id }.forEach { monkey ->
+                while(monkey.items.isNotEmpty()) {
+                    val item = monkey.items.removeFirst()
+
+                    monkeys.values.forEach { m ->
+                        if (item.moduloMap[m.modulus] == null) {
+                            item.moduloMap[m.modulus] = item.value
+                        }
+                        item.moduloMap[m.modulus] = performOperation(item.moduloMap[m.modulus]!!, monkey.operation) % m.modulus
+                    }
+                    val nextMonkey = if (item.moduloMap[monkey.modulus] == 0) monkey.nextIfTrue else monkey.nextIfFalse
+                    monkeys[nextMonkey]!!.items.add(item)
+                    monkey.count++
+                }
+            }
+        }
+        val ans = monkeys.values.map { it.count }.sortedDescending().take(2).reduce { a, b ->  a * b }
+        println("day 11 part 2: $ans")
+    }
+
     fun part1() {
-        val monkeys = input.split("\n\n").map { monkey ->
-
-            val lines = monkey.split("\n")
-            val monkeyId = Regex("Monkey (\\d+):").matchEntire(lines[0])!!.groupValues[1].toInt()
-            val startingItems =
-                lines[1].trim().removePrefix("Starting items: ").split(",").map { it.trim().toInt() }.toMutableList()
-            val operation =
-                parseOperation(Regex("\\s+Operation: new = old (.*)").matchEntire(lines[2])!!.groupValues[1])
-            val testCondition = Regex("\\s+Test: divisible by (\\d+)").matchEntire(lines[3])!!.groupValues[1].toInt()
-            val resultIfTrue =
-                Regex("\\s+If true: throw to monkey (\\d+)").matchEntire(lines[4])!!.groupValues[1].toInt()
-            val resultIfFalse =
-                Regex("\\s+If false: throw to monkey (\\d+)").matchEntire(lines[5])!!.groupValues[1].toInt()
-            val test: (Int) -> Int = { n -> if (n % testCondition == 0) resultIfTrue else resultIfFalse }
-
-            Monkey(
-                id = monkeyId,
-                items = startingItems,
-                operation = operation,
-                test = test
-            )
-        }.associateBy { it.id }
+        val monkeys = getMonkeyMap()
 
         (1..20).forEach { _ ->
             monkeys.values.sortedBy { it.id }.forEach { monkey ->
 //                println("Monkey ${monkey.id}")
                 while(monkey.items.isNotEmpty()) {
-                    val nextItem = monkey.items.removeFirst()
-                    val result = monkey.operation.invoke(nextItem) / 3
-                    val nextMonkey = monkey.test(result)
-                    monkeys[nextMonkey]!!.items.add(result)
+                    val item = monkey.items.removeFirst()
+                    item.value = performOperation(item.value, monkey.operation) / 3
+                    val nextMonkey = if (item.value % monkey.modulus == 0) monkey.nextIfTrue else monkey.nextIfFalse
+                    monkeys[nextMonkey]!!.items.add(item)
                     monkey.count++
 //                    println("\tMonkey inspects an item with a worry level of $nextItem.")
 //                    println("\t\tWorry level is now $result.")
@@ -53,11 +64,34 @@ object Day11 {
         println("day 11 part 1: $ans")
     }
 
-    private fun parseOperation(operation: String): (Int) -> Int {
-        val (operator, operand) = operation.split(Regex("\\s+")).map { it.trim() }
-        return when (operator) {
-            "+" -> { n -> n + if (operand == "old") n else operand.toInt() }
-            "*" -> { n -> n * if (operand == "old") n else operand.toInt() }
+    private fun getMonkeyMap() = input.split("\n\n").map { monkey ->
+
+        val lines = monkey.split("\n")
+        val monkeyId = Regex("Monkey (\\d+):").matchEntire(lines[0])!!.groupValues[1].toInt()
+        val startingItems = lines[1].trim().removePrefix("Starting items: ")
+            .split(",").map { it.trim().toInt() }.map { Item(it) }.toMutableList()
+        val operation = Regex("\\s+Operation: new = old (.*)").matchEntire(lines[2])!!.groupValues[1]
+            .split(Regex("\\s+")).map { it.trim() }.let { Operation(it[0], it[1]) }
+        val modulus = Regex("\\s+Test: divisible by (\\d+)").matchEntire(lines[3])!!.groupValues[1].toInt()
+        val nextIfTrue =
+            Regex("\\s+If true: throw to monkey (\\d+)").matchEntire(lines[4])!!.groupValues[1].toInt()
+        val nextIfFalse =
+            Regex("\\s+If false: throw to monkey (\\d+)").matchEntire(lines[5])!!.groupValues[1].toInt()
+
+        Monkey(
+            id = monkeyId,
+            items = startingItems,
+            operation = operation,
+            modulus = modulus,
+            nextIfTrue = nextIfTrue,
+            nextIfFalse = nextIfFalse
+        )
+    }.associateBy { it.id }
+
+    private fun performOperation(input: Int, op: Operation): Int {
+        return when (op.operator) {
+            "+" -> input + (if (op.operand == "old") input else op.operand.toInt())
+            "*" -> input * (if (op.operand == "old") input else op.operand.toInt())
             else -> throw IllegalStateException()
         }
     }
