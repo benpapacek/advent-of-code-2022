@@ -25,6 +25,7 @@ fun main() {
     Day12.part1()
     Day12.part2()
     Day13.part1()
+    Day13.part2()
 }
 
 
