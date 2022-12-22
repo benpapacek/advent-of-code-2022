@@ -1,3 +1,5 @@
+import kotlin.system.measureNanoTime
+
 object Day16 {
 
     private val input = FileReader().readFile("input-day16.txt")
@@ -6,12 +8,40 @@ object Day16 {
         lateinit var neighbours: List<Valve>
         var paths: List<List<Valve>>? = null
 
+        var isOpen: Boolean = false
+
         var dist = Int.MAX_VALUE
         var prev: Valve? = null
         override fun toString(): String = "$id ($flowRate)"
     }
 
     fun part1() {
+        val valves = getValves()
+        val start = valves.find { it.id == "AA" }!!
+        val solutions = mutableSetOf<Int>()
+
+        recursePart1(solutions, valves, listOf(), start, 30, 0)
+
+        val ans = solutions.max()
+        println("day 16 part 1: $ans")
+    }
+
+    // TODO This is still not very efficient (takes over 5min to complete)
+    fun part2() {
+        val valves = getValves()
+        val start = valves.find { it.id == "AA" }!!
+        val solutions = mutableSetOf<Int>()
+
+        val agent1 = Agent(0, listOf(), listOf(start), 0)
+        val agent2 = Agent(0, listOf(), listOf(start), 0)
+
+        recursePart2(solutions, valves, agent1, agent2, 26)
+
+        val ans = solutions.max()
+        println("day 16 part 2: $ans")
+    }
+
+    private fun getValves(): List<Valve> {
         val valveParams = input.split("\n").filterNot { it.isBlank() }.map { line ->
             val match = Regex("Valve (.*) has flow rate=(.*); tunnels? leads? to valves? (.*)").matchEntire(line)!!
             match.groupValues
@@ -29,74 +59,84 @@ object Day16 {
                 dijkstra(valves, source, target)
             }
         }
-
-        val ans = solveRecursive(valves, GreedyStrategy())
-        println("day 16 part 1: $ans")
+        return valves
     }
 
-    private interface Strategy {
-        fun getOptima(candidates: List<List<Valve>>): List<List<Valve>>
-    }
-
-    private class ExampleStrategy: Strategy {
-        val ids = mutableListOf("DD", "BB", "JJ", "HH", "EE", "CC")
-        override fun getOptima(candidates: List<List<Valve>>): List<List<Valve>> {
-            return ids.removeFirstOrNull()?.let { k ->
-                listOf(candidates.first { it.lastOrNull()?.id == k })
-            } ?: emptyList()
-        }
-    }
-
-    private class BestOfClosestStrategy(val best: Int, val ofClosest: Int): Strategy {
-        override fun getOptima(candidates: List<List<Valve>>): List<List<Valve>> {
-            val closest = candidates.sortedBy { it.last().paths!!.size }.take(ofClosest)
-            return closest.sortedBy { it.last().flowRate }.take(best)
-        }
-    }
-
-    private class GreedyStrategy: Strategy {
-        override fun getOptima(candidates: List<List<Valve>>): List<List<Valve>> {
-            return candidates
-        }
-    }
-
-    private fun solveRecursive(valves: List<Valve>, strategy: Strategy): Int {
-        val source = valves.find { it.id == "AA" }!!
-        val solutions = mutableSetOf<Int>()
-        recurse(solutions, valves, emptyList(), source, strategy, 30, 0)
-        return solutions.max()
-    }
-
-    private fun recurse(
+    private fun recursePart1(
         solutionSet: MutableSet<Int>,
         valves: List<Valve>,
         visited: List<Valve>,
         source: Valve,
-        strategy: Strategy,
         timeRemaining: Int,
         totalPressure: Int
     ) {
-
         val candidates = source.paths!!.filterNot { visited.contains(it.last()) }
-        val optima: List<List<Valve>> = strategy.getOptima(candidates)
-        if (optima.isEmpty()) {
+        if (candidates.isEmpty()) {
             solutionSet.add(totalPressure)
-//            println(totalPressure)
         }
-        optima.forEach { path ->
+        candidates.forEach { path ->
             val target = path.last()
             val newTimeRemaining = timeRemaining - path.size
             if (newTimeRemaining > 0) {
-//                totalPath.add(target)
                 val newTotalPressure = totalPressure + target.flowRate * newTimeRemaining
                 val newVisited = visited + listOf(target)
-                recurse(solutionSet, valves, newVisited, target, strategy, newTimeRemaining, newTotalPressure)
+                recursePart1(solutionSet, valves, newVisited, target, newTimeRemaining, newTotalPressure)
             } else {
                 solutionSet.add(totalPressure)
-//                println(totalPressure)
             }
         }
     }
+
+    private data class Agent(
+        val totalPressure: Int, val visited: List<Valve>, val path: List<Valve>, val step: Int, val done: Boolean = false
+    )
+
+    private fun recursePart2(
+        solutionSet: MutableSet<Int>,
+        valves: List<Valve>,
+        agent1: Agent,
+        agent2: Agent,
+        timeRemaining: Int,
+    ) {
+        if ((agent1.done && agent2.done) || timeRemaining <= 0) {
+            solutionSet.add(agent1.totalPressure + agent2.totalPressure)
+            return
+        }
+        val agents = listOf(agent1, agent2)
+
+        val newTimeRemaining = timeRemaining - 1
+        val agent1Options = getAgentOptions(agent1, timeRemaining) { path ->
+            agents.none { a -> a.path.last() == path.last() || a.visited.contains(path.last()) }
+        }
+        agent1Options.forEach { newAgent1 ->
+            val agent2Options = getAgentOptions(agent2, timeRemaining) { path ->
+                agents.none { a -> a.path.last() == path.last() || a.visited.contains(path.last()) }
+                        && newAgent1.path.last() != path.last()
+            }
+            agent2Options.forEach { newAgent2 ->
+                recursePart2(solutionSet, valves, newAgent1, newAgent2, newTimeRemaining)
+            }
+        }
+    }
+
+    private fun getAgentOptions(agent: Agent, timeRemaining: Int, pathFilter: (List<Valve>) -> Boolean) =
+        if (agent.done) {
+            listOf(agent)
+        } else if (agent.step + 1 < agent.path.size) {
+            listOf(agent.copy(step = agent.step + 1))
+        } else {
+            val source = agent.path.last()
+            val newTotalPressure = agent.totalPressure + source.flowRate * timeRemaining
+            val newVisited = agent.visited + listOf(source)
+            val candidates = source.paths!!.filter(pathFilter)
+            if (candidates.isEmpty()) {
+                listOf(agent.copy(done = true, totalPressure = newTotalPressure, visited = newVisited))
+            } else {
+                candidates.map { newPath ->
+                    agent.copy(path = newPath, step = 0, totalPressure = newTotalPressure, visited = newVisited)
+                }
+            }
+        }
 
     private fun dijkstra(valves: List<Valve>, source: Valve, target: Valve): List<Valve> {
         val queue = valves.toMutableList()

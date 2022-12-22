@@ -31,6 +31,7 @@ fun main() {
 //    Day15.part1()
 //    Day15.part2()
     Day16.part1()
+    Day16.part2()
 }
 
 
