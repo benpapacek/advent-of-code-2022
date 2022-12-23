@@ -5,10 +5,23 @@ object Day17 {
     private val input = FileReader().readFile("input-day17.txt")
 
     private const val WIDTH = 9
-    private const val HEIGHT = 4000
+    private const val HEIGHT = 100
 
     fun part1() {
-        var rockCount = 0
+        val ans = runSimulation(2022)
+        println("day 17 part 1: $ans")
+    }
+
+    fun part2() {
+        val ans = runSimulation(1000000000000)
+        println("day 17 part 2: $ans")
+    }
+
+    private fun runSimulation(n: Long): Long {
+//        var patternLastRockCount = 0L
+//        var patternLastRowCount = 0L
+        var rowCount = 0L
+        var rockCount = 0L
         var nextInstructionIndex = 0
         var nextPieceIndex = 0
         val staticGrid = ("|.......|".repeat(HEIGHT - 1) + "---------").toCharArray().toMutableList()
@@ -16,8 +29,9 @@ object Day17 {
         addPiece(dynamicGrid, PIECES[nextPieceIndex++], getStartY(staticGrid))
 
         val instructionQueue = input.trim().toCharArray()
+        val pattern: Pattern = INPUT_PATTERN
 
-        while(rockCount < 2022) {
+        while (rockCount < n) {
             when (instructionQueue[nextInstructionIndex++ % instructionQueue.size]) {
                 '<' -> {
                     Collections.rotate(dynamicGrid, -1)
@@ -38,9 +52,32 @@ object Day17 {
 
             Collections.rotate(dynamicGrid, WIDTH)
             if (!isValidPosition(dynamicGrid, staticGrid)) {
+                if (nextInstructionIndex % instructionQueue.size == 0) {
+                    println(rockCount)
+                }
                 rockCount++
                 Collections.rotate(dynamicGrid, -WIDTH)
                 merge(dynamicGrid, staticGrid)
+
+                val rowsRemoved = cleanGrid(staticGrid)
+                // uncomment to find pattern marker
+//                if (rowsRemoved > 0) println("rows removed: $rowsRemoved")
+                // uncomment to find pattern rocks / rows
+//                if (rowsRemoved == 46) {
+//                    val deltaRockCount = rockCount - patternLastRockCount
+//                    val deltaRowCount = rowCount - patternLastRowCount
+//                    patternLastRowCount = rowCount
+//                    patternLastRockCount = rockCount
+//                    println("removed $deltaRowCount rows over $deltaRockCount rocks")
+//                }
+
+                if (rowsRemoved == pattern.marker) {
+                    val skipAhead = (n - rockCount) / pattern.rocks
+                    rowCount += skipAhead * pattern.rows
+                    rockCount += skipAhead * pattern.rocks
+                }
+                rowCount += rowsRemoved
+//                debug(dynamicGrid, staticGrid)
                 val startY = getStartY(staticGrid)
                 if (startY < 0) {
                     throw IllegalStateException("Not enough height")
@@ -48,10 +85,21 @@ object Day17 {
                 addPiece(dynamicGrid, PIECES[nextPieceIndex++ % PIECES.size], startY)
             }
         }
+        return (rowCount + (HEIGHT - getHighestOccupiedRow(staticGrid) - 1))
+    }
 
-//        debug(dynamicGrid, staticGrid)
-        val ans = HEIGHT - getHighestOccupiedRow(staticGrid) - 1 // subtract one for floor
-        println("day 17 part 1: $ans")
+    private fun cleanGrid(staticGrid: MutableList<Char>): Int {
+        val highestFilled = (1..7).associateWith { i ->
+            (0..HEIGHT).first { j -> staticGrid[j * WIDTH + i] != '.' }
+        }
+        val removableRows = HEIGHT - highestFilled.values.max() - 1
+
+        Collections.rotate(staticGrid, removableRows * WIDTH)
+        (0 until removableRows * WIDTH).forEach { i ->
+            staticGrid[i] = if (i % WIDTH == 0 || i % WIDTH == 8) '|' else '.'
+        }
+
+        return removableRows
     }
 
     private fun merge(dynamicGrid: MutableList<Char>, staticGrid: MutableList<Char>) {
@@ -107,3 +155,8 @@ private val PIECES = arrayOf(
 )
     
 private const val TEST_INPUT = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"
+
+private data class Pattern(val marker: Int, val rows: Long, val rocks: Long)
+
+private val TEST_INPUT_PATTERN = Pattern(marker = 27, rows = 53, rocks = 35)
+private val INPUT_PATTERN = Pattern(marker = 46, rows = 2647, rocks = 1710)
