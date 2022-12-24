@@ -14,12 +14,39 @@ object Day18 {
         val bounds = getBounds(points)
         val grid = createGrid(points, bounds)
 
-        val ans = countUnboundedSides(grid, bounds)
+        val ans = countUnboundedSides(grid, bounds, 0)
 
         println("day 17 part 1: $ans")
     }
 
-    private fun countUnboundedSides(grid: Array<Array<Array<Int>>>, bounds: Bounds): Int {
+    fun part2() {
+        val points = getPoints()
+        val bounds = getBounds(points)
+        val grid = createGrid(points, bounds)
+
+        val tag = 2
+        tagExternal(grid, tag, 0, 0, 0)
+        val ans = countUnboundedSides(grid, bounds, tag)
+
+        println("day 17 part 2: $ans")
+    }
+
+    private fun tagExternal(grid: Array<Array<Array<Int>>>, tag: Int, x: Int, y: Int, z: Int) {
+        if (grid[x][y][z] != 0) return
+        if (grid[x][y][z] == 0) {
+            grid[x][y][z] = 2
+            if (x > 0) tagExternal(grid, tag, x - 1, y, z)
+            if (y > 0) tagExternal(grid, tag, x, y - 1, z)
+            if (z > 0) tagExternal(grid, tag, x, y, z - 1)
+            if (x < grid.size - 1) tagExternal(grid, tag, x + 1, y, z)
+            if (y < grid[x].size - 1) tagExternal(grid, tag, x, y + 1, z)
+            if (z < grid[x][y].size - 1) tagExternal(grid, tag, x, y, z + 1)
+        }
+    }
+
+    private fun countUnboundedSides(grid: Array<Array<Array<Int>>>,
+                                    bounds: Bounds,
+                                    target: Int): Int {
         val (xMin, xMax, yMin, yMax, zMin, zMax) = bounds
         var count = 0
         (xMin..xMax).forEach { x ->
@@ -27,17 +54,17 @@ object Day18 {
                 (zMin..zMax).forEach { z ->
                     if (grid[x][y][z] == 1) {
                         if (x == 0) count++
-                        else if (grid[x - 1][y][z] == 0) count++
+                        else if (grid[x - 1][y][z] == target) count++
 
                         if (y == 0) count++
-                        else if (grid[x][y - 1][z] == 0) count++
+                        else if (grid[x][y - 1][z] == target) count++
 
                         if (z == 0) count++
-                        else if (grid[x][y][z - 1] == 0) count++
+                        else if (grid[x][y][z - 1] == target) count++
 
-                        if (grid[x + 1][y][z] == 0) count++
-                        if (grid[x][y + 1][z] == 0) count++
-                        if (grid[x][y][z + 1] == 0) count++
+                        if (grid[x + 1][y][z] == target) count++
+                        if (grid[x][y + 1][z] == target) count++
+                        if (grid[x][y][z + 1] == target) count++
                     }
                 }
             }
