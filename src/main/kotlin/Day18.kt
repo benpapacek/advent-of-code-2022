@@ -16,7 +16,7 @@ object Day18 {
 
         val ans = countUnboundedSides(grid, bounds, 0)
 
-        println("day 17 part 1: $ans")
+        println("day 18 part 1: $ans")
     }
 
     fun part2() {
@@ -28,7 +28,7 @@ object Day18 {
         tagExternal(grid, tag, 0, 0, 0)
         val ans = countUnboundedSides(grid, bounds, tag)
 
-        println("day 17 part 2: $ans")
+        println("day 18 part 2: $ans")
     }
 
     private fun tagExternal(grid: Array<Array<Array<Int>>>, tag: Int, x: Int, y: Int, z: Int) {
