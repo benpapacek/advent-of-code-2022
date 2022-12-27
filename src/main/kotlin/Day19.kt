@@ -30,7 +30,26 @@ object Day19 {
     private val input = FileReader().readFile("input-day19.txt")
 
     fun part1() {
-        val blueprints = input.split("\n").filterNot { it.isBlank() }.map { line ->
+        val blueprints = getBlueprints()
+        val results = blueprints.map { blueprint ->
+            blueprint.id to findOptimumForBlueprint(blueprint, 24)
+        }
+        val ans = results.sumOf { it.first * it.second }
+        println("day 19 part 1: $ans")
+    }
+
+    fun part2() {
+        val blueprints = getBlueprints()
+        val results = (1..2).map { i ->
+            blueprints[i].id to findOptimumForBlueprint(blueprints[i], 32)
+        }
+        println(results)
+//        val ans = results.reduce { a, b -> a * b }
+//        println("day 19 part 2: $ans")
+    }
+
+    private fun getBlueprints(): List<Blueprint> {
+        return input.split("\n").filterNot { it.isBlank() }.map { line ->
             val regex = Regex("Blueprint (\\d+): Each ore robot costs (\\d+) ore. Each clay robot costs (\\d+) ore. Each obsidian robot costs (\\d+) ore and (\\d+) clay. Each geode robot costs (\\d+) ore and (\\d+) obsidian.")
             val matches = regex.matchEntire(line.trim())!!
             Blueprint(
@@ -43,23 +62,17 @@ object Day19 {
                 geodeCostInObsidian = matches.groupValues[7].toInt(),
             )
         }
-
-        val results = blueprints.map { blueprint ->
-            blueprint.id to findOptimumForBlueprint(blueprint)
-        }
-        val ans = results.sumOf { it.first * it.second }
-        println("day 19 part 1: $ans")
     }
 
-    private fun findOptimumForBlueprint(blueprint: Blueprint): Int {
+    private fun findOptimumForBlueprint(blueprint: Blueprint, time: Int): Int {
 //        println("starting blueprint ${blueprint.id}...")
         val solutionSet = mutableSetOf<Int>()
-//        val time = measureNanoTime {
+//        val timeTaken = measureNanoTime {
             Action.values().forEach { a ->
-                recurse(a, 24, blueprint, Resources(oreRobots = 1), solutionSet)
+                recurse(a, time, blueprint, Resources(oreRobots = 1), solutionSet)
             }
 //        }
-//        println("found optimum for blueprint ${blueprint.id} (${solutionSet.max()}) in ${time * 0.000000001}s")
+//        println("found optimum for blueprint ${blueprint.id} (${solutionSet.max()}) in ${timeTaken * 0.000000001}s")
         return solutionSet.max()
     }
 
